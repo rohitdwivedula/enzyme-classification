@@ -6,7 +6,7 @@ import math
 import keras
 import tensorflow as tf
 from keras.models import Model
-from tensorflow.keras.models import load_model
+from keras.models import load_model
 from keras.models import Sequential
 import keras.backend as K
 from keras import optimizers
@@ -22,6 +22,8 @@ import pickle
 from keras import regularizers
 from keras import backend as K
 from sklearn.utils import class_weight
+from sklearn.metrics import balanced_accuracy_score
+from sklearn.model_selection import KFold
 from keras_self_attention import SeqSelfAttention
 
 # GPU
@@ -68,7 +70,7 @@ if gpus:
 
 # 	# return np.zeros((8,))
 
-ds = pd.read_csv('data/protein_dataset_cdhit_80.csv')
+ds = pd.read_csv('../data/protein_dataset_cdhit_80.csv')
 seq = ds.iloc[:,6:7].values
 ec = ds.iloc[:,5:6].values
 
@@ -119,11 +121,11 @@ ec = ds.iloc[:,5:6].values
 # outfile.close()
 
 # pickle in
-infile = open('data/X.pickle','rb')
+infile = open('../data/X.pickle','rb')
 X = pickle.load(infile)
 infile.close()
 
-infile = open('data/y.pickle','rb')
+infile = open('../data/y.pickle','rb')
 y = pickle.load(infile)
 infile.close()
 
@@ -164,54 +166,82 @@ print(class_weights)
 # for i in y:
 # 	y_arg.append(np.argmax(i))
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
-# X_train, y_train = shuffle(X_train, y_train, random_state = 42)
+# k fold cross val
+num_folds = 5
+acc_per_fold = []
+loss_per_fold = []
+f1_per_fold = []
+bal_acc_per_fold = []
 
-y_train = np_utils.to_categorical(y_train)
-y_test = np_utils.to_categorical(y_test)
+fold_num = 1
+kfold = KFold(n_splits=num_folds, shuffle=True)
+for train, test in kfold.split(X, y):
+    print("Fold Number: ", fold_num)
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
+    # X_train, y_train = shuffle(X_train, y_train, random_state = 42)
 
-# Neural Network model
-inp = Input(shape=(3,100))
-x = Bidirectional(LSTM(128, activation = 'tanh', return_sequences = True))(inp)
-# x = Dropout(0.4)(x)
-x = Bidirectional(LSTM(128, activation = 'tanh', return_sequences = True))(x)
-# x = Dropout(0.7)(x)
-x = SeqSelfAttention(attention_activation='tanh')(x)
-x = Flatten()(x)
-# x = Dropout(0.7)(x)
-out = Dense(8, activation='softmax')(x)
+    y_train = np_utils.to_categorical(y[train])
+    y_test = np_utils.to_categorical(y[test])
 
-model = Model(inp, out)
-print(model.summary())
-opt = keras.optimizers.Adam(learning_rate = 1e-3)
-model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    # Neural Network model
+    inp = Input(shape=(3,100))
+    x = Bidirectional(LSTM(128, activation = 'tanh', return_sequences = True))(inp)
+    # x = Dropout(0.4)(x)
+    x = Bidirectional(LSTM(128, activation = 'tanh', return_sequences = True))(x)
+    # x = Dropout(0.7)(x)
+    x = SeqSelfAttention(attention_activation='tanh')(x)
+    x = Flatten()(x)
+    # x = Dropout(0.7)(x)
+    out = Dense(8, activation='softmax')(x)
 
-mcp_save = keras.callbacks.callbacks.ModelCheckpoint('models/Abilstm.h5', save_best_only=True, monitor='val_accuracy', verbose=1)
-reduce_lr = keras.callbacks.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.1, patience=10, verbose=1, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
-callbacks_list = [reduce_lr, mcp_save]
+    model = Model(inp, out)
+    # print(model.summary())
+    opt = keras.optimizers.Adam(learning_rate = 1e-3)
+    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-history = model.fit(X_train, y_train, batch_size = 512, epochs = 200, validation_data = (X_test, y_test), shuffle = False, callbacks = callbacks_list)
+    mcp_save = keras.callbacks.callbacks.ModelCheckpoint('../models/Abilstm.h5', save_best_only=True, monitor='val_accuracy', verbose=1)
+    reduce_lr = keras.callbacks.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.1, patience=10, verbose=1, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
+    callbacks_list = [reduce_lr, mcp_save]
 
-# model = load_model('models/Abilstm.h5', custom_objects=SeqSelfAttention.get_custom_objects())
-eval_ = model.evaluate(x = X_test, y = y_test)
-print("Loss: " + str(eval_[0]) + ", Accuracy: " + str(eval_[1]))
-print(eval_)
+    history = model.fit(X[train], y_train, batch_size = 512, epochs = 700, validation_data = (X[test], y_test), shuffle = False, callbacks = callbacks_list)
 
-y_pred = model.predict(X_test)
+    model = load_model('../models/Abilstm.h5', custom_objects=SeqSelfAttention.get_custom_objects())
+    eval_ = model.evaluate(x = X[test], y = y_test)
+    acc_per_fold.append(eval_[1])
+    loss_per_fold.append(eval_[0])
+    print("Loss: " + str(eval_[0]) + ", Accuracy: " + str(eval_[1]))
+    print(eval_)
 
-# Metrics
-print("Confusion Matrix")
-matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
-print(matrix)
+    y_pred = model.predict(X[test])
 
-print("F1 Score")
-print(f1_score(y_test.argmax(axis=1), y_pred.argmax(axis=1), average = 'weighted'))
+    # Metrics
+    print("Confusion Matrix")
+    matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+    print(matrix)
 
-print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
+    print("F1 Score")
+    f1 = f1_score(y_test.argmax(axis=1), y_pred.argmax(axis=1), average = 'weighted')
+    print(f1)
+    f1_per_fold.append(f1)
+    print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
 
-'''Run 1: 200 epochs
-2 Layers (32 units each) + 0.4 Dropout below
-Loss: 0.6390913128852844, Accuracy: 0.8071155548095703
+    print("Balanced Accuracy Score")
+    bal_acc = balanced_accuracy_score(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+    print(bal_acc)
+    bal_acc_per_fold.append(bal_acc)
+
+    fold_num += 1
+
+print("K Fold Metrics")
+print("Accuracy: ", np.mean(acc_per_fold), " +- ", np.std(acc_per_fold))
+print("Balanced Accuracy: ", np.mean(bal_acc_per_fold), " +- ", np.std(bal_acc_per_fold))
+print("Weighted F1 Score: ", np.mean(f1_per_fold), " +- ", np.std(f1_per_fold))
+print(acc_per_fold, bal_acc_per_fold, f1_per_fold)
+
+'''K Fold Metrics
+Accuracy:  0.9001388311386108  +-  0.008349277372240133
+Balanced Accuracy:  0.7343931109466725  +-  0.035337177412446234
+Weighted F1 Score:  0.8981577707658739  +-  0.00889887017359589
 '''
 
 
