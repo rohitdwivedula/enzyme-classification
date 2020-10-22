@@ -1,9 +1,6 @@
 # Libraries
-import biovec
 import pandas as pd 
 import numpy as np
-import math
-import sys
 import keras
 import tensorflow as tf
 from keras.models import Model
@@ -23,15 +20,12 @@ import pickle
 from keras import regularizers
 from keras import backend as K
 from sklearn.utils import class_weight
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 # GPU
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 
 tf.keras.backend.clear_session()
-
-
 
 config = ConfigProto()
 config.gpu_options.allow_growth = True
@@ -53,28 +47,16 @@ if gpus:
         print(e)
 
 # pickle in
-infile = open('data/X.pickle','rb')
-X = pickle.load(infile)
-infile.close()
+with open('data/X.pickle','rb') as infile:
+	X = pickle.load(infile)
 
-infile = open('data/y.pickle','rb')
-y = pickle.load(infile)
-infile.close()
+with open('data/y.pickle','rb') as infile:
+	y = pickle.load(infile)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 y_train = np_utils.to_categorical(y_train)
 y_test = np_utils.to_categorical(y_test)
 
-# space = { 
-#             'weight_zero': hp.uniform('weight_zero', 0,1),
-#             'weight_one': hp.uniform('weight_one', 0,1),
-#             'weight_two': hp.uniform('weight_two', 0,1),
-#             'weight_three': hp.uniform('weight_three', 0,1),
-#             'weight_four': hp.uniform('weight_four', 0,1),
-#             'weight_five': hp.uniform('weight_five', 0,1),
-#             'weight_six': hp.uniform('weight_six', 0,1),
-#             'weight_seven': hp.uniform('weight_seven', 0,1)
-#         }
 
 # def keras_model(params):
 # Neural Network model
@@ -92,13 +74,10 @@ mcp_save = keras.callbacks.callbacks.ModelCheckpoint('lstm_run3.h5', save_best_o
 reduce_lr = keras.callbacks.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.1, patience=10, verbose=1, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
 callbacks_list = [reduce_lr, mcp_save]
 
-weights = {5: 0.07747904988020565, 4: 0.8638056375324108, 1: 0.7938821554626749, 7: 0.2186351438043747, 6: 0.9462611855009988, 3: 0.5290149840052552, 2: 0.7458703141562557, 0: 0.5711693570065576}
-
-# weights = {0:params['weight_zero'], 1:params['weight_one'], 2:params['weight_two'], 3:params['weight_three'], 4:params['weight_four'], 5:params['weight_five'], 6:params['weight_six'], 7:params['weight_seven']}
-
-history = model.fit(X_train, y_train, batch_size = 256, epochs = 250, validation_data = (X_test, y_test), shuffle = False, callbacks = callbacks_list, class_weight = weights)
+history = model.fit(X_train, y_train, batch_size = 256, epochs = 250, validation_data = (X_test, y_test), shuffle = False, callbacks = callbacks_list)
 
 eval_ = model.evaluate(x = X_test, y = y_test)
+
 print("Loss: " + str(eval_[0]) + ", Accuracy: " + str(eval_[1]))
 acc = eval_[1]
 print(eval_)
@@ -115,13 +94,6 @@ print(f1_score(y_test.argmax(axis=1), y_pred.argmax(axis=1), average = 'weighted
 
 print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
 
-# sys.stdout.flush() 
-
-# return {'loss': -acc, 'status': STATUS_OK}
-
-# trials = Trials()
-# best = fmin(keras_model, space, algo=tpe.suggest, max_evals=50, trials=trials)
-# print('best: ', best)
 
 '''
 Run 1: 200 epochs
