@@ -3,6 +3,7 @@ import csv
 import sys
 import pickle
 import numpy as np
+import os
 import pandas as pd
 import time
 
@@ -34,6 +35,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report, confusion_matrix
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.combine import SMOTEENN, SMOTETomek
+SAMPLING_METHODS = ["NONE", "SMOTE", "ADASYN", "SMOTEENN", "SMOTETomek"]
 
 parser = argparse.ArgumentParser(description='Run all ML models on protein dataset.')
 parser.add_argument('--smoketest', dest='smoketest', action='store_true', help='Run models on only first 100 rows of data (for testing)')
@@ -41,6 +43,7 @@ parser.set_defaults(smoketest=False)
 parser.add_argument('--expensive_classifier', dest='expensive_classifier', action='store_true', help='Run models on time taking classifiers only')
 parser.set_defaults(expensive_classifier=False)
 args = parser.parse_args()
+
 
 
 if not args.expensive_classifier:
@@ -76,16 +79,43 @@ if args.smoketest:
 
 kf = StratifiedKFold(n_splits=10, random_state=1, shuffle=True)
 
-all_results = []
+if os.path.exists('results.pickle'):
+	with open('results.pickle', 'rb') as f:
+		all_results = pickle.load(f)
+	# model': 'LogisticRegression', 'fold': 2, 'sampling': 'SMOTETomek
+	resumed_run = True
+	last_iter_fold = all_results[-1]['fold']
+	last_iter_model = all_results[-1]['model']
+	last_iter_sampling = all_results[-1]['sampling']
+else:
+	all_results = []
+	resumed_run = False
+	last_iter_fold = None
+	last_iter_model = None
+	last_iter_sampling = None
+
 fold = 1
 for train_index, test_index in kf.split(X, y):
-	
+	if resumed_run:
+		if fold < last_iter_fold:
+			# this fold has already been done, skip
+			print("K Fold Cross Validation || Fold #", fold, "already done. Skipped.")
+			fold+=1
+			continue
 	print("K Fold Cross Validation || Fold #", fold)
 	X_train, X_test = X[train_index], X[test_index]
 	y_train, y_test = y[train_index], y[test_index]
 	
-	for sampling_method in ["NONE", "SMOTE", "ADASYN", "SMOTEENN", "SMOTETomek"]:
-		
+	for sampling_method in SAMPLING_METHODS:
+		print("K Fold", fold, "sampling methods begin")
+		if resumed_run:
+			if SAMPLING_METHODS.index(last_iter_sampling) > SAMPLING_METHODS.index(sampling_method):
+				# this sampling method has already been done, skip
+				print("Fold #", fold, ", sampling", sampling_method, "already done. Skipped.")
+				continue
+
+		print("Sampling strategy", sampling_method, "begun.")
+		start = time.time()
 		if sampling_method == "NONE":
 			X_resampled, y_resampled = X_train, y_train
 		
@@ -102,8 +132,17 @@ for train_index, test_index in kf.split(X, y):
 		elif sampling_method == "SMOTETomek":
 			smote_tomek = SMOTETomek(random_state=1)			
 			X_resampled, y_resampled = smote_tomek.fit_resample(X, y)
-		
+		print("Sampling of", sampling_method, "done. Took %.2f"%(time.time()-start))
 		for (classifier, model_name) in zip(ALL_MODELS, ALL_MODEL_NAMES):
+			if resumed_run:
+				if ALL_MODEL_NAMES.index(last_iter_model) > ALL_MODEL_NAMES.index(model_name):
+					# this sampling method has already been done, skip
+					print("Fold #", fold, ", sampling", sampling_method, "classifier", model_name, "already done. Skipped.")
+					continue
+				elif ALL_MODEL_NAMES.index(last_iter_model) == ALL_MODEL_NAMES.index(model_name):
+					print("Fold #", fold, ", sampling", sampling_method, "classifier", model_name, "already done. Skipped.")
+					resumed_run = False
+					continue
 			print("Running on model: ", model_name, "with", sampling_method, "sampling method on Fold #", fold)
 			clf = classifier()
 			start_train = time.time()
