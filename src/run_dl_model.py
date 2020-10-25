@@ -87,11 +87,11 @@ for train_index, test_index in kf.split(X, y):
 		print(model.summary())
 		opt = keras.optimizers.Adam(learning_rate = 1e-3)
 		model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
-		mcp_save = keras.callbacks.ModelCheckpoint('models/cnn.h5', save_best_only=True, monitor='val_accuracy', verbose=1)
+		mcp_save = keras.callbacks.ModelCheckpoint('models/saved_model.h5', save_best_only=True, monitor='val_accuracy', verbose=1)
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.1, patience=10, verbose=1, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
 		callbacks_list = [reduce_lr, mcp_save]
 		history = model.fit(X_train, y_train, batch_size = 256, epochs = 200, validation_split = 0.1, shuffle = True, callbacks = callbacks_list)
-		model = load_model('models/cnn.h5')
+		model = load_model('models/saved_model.h5')
 		end_train = time.time()
 		
 		y_pred = model.predict(X_test)

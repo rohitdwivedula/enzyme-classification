@@ -1,8 +1,4 @@
 /biovec
 /data
-/models/bilstm.h5
-/models/cnn.h5
-/models/gru.h5
-/models/lstm_run2.h5
-/models/lstm_run3.h5
-/src/lazy_predict.py
+/models/*
+**/__pycache__
