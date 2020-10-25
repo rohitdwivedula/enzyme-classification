@@ -36,7 +36,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report, confusion_matrix
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.combine import SMOTEENN, SMOTETomek
-SAMPLING_METHODS = ["NONE", "SMOTE", "ADASYN", "SMOTEENN", "SMOTETomek"]
+SAMPLING_METHODS = ["NONE", "SMOTE"]
 
 parser = argparse.ArgumentParser(description='Run all ML models on protein dataset.')
 parser.add_argument('--smoketest', dest='smoketest', action='store_true', help='Run models on only first 100 rows of data (for testing)')
@@ -44,8 +44,6 @@ parser.set_defaults(smoketest=False)
 parser.add_argument('--expensive_classifier', dest='expensive_classifier', action='store_true', help='Run models on time taking classifiers only')
 parser.set_defaults(expensive_classifier=False)
 args = parser.parse_args()
-
-
 
 if not args.expensive_classifier:
 	ALL_MODELS = [PassiveAggressiveClassifier, Perceptron, RidgeClassifier, SGDClassifier, 
@@ -121,18 +119,24 @@ for train_index, test_index in kf.split(X, y):
 			X_resampled, y_resampled = X_train, y_train
 		
 		elif sampling_method == "SMOTE":
-			X_resampled, y_resampled = SMOTE().fit_resample(X_train, y_train)
+			X_resampled, y_resampled = SMOTE(random_state=1).fit_resample(X_train, y_train)
 		
-		elif sampling_method == "ADASYN":
-			X_resampled, y_resampled = ADASYN().fit_resample(X_train, y_train)
+		# elif sampling_method == "ADASYN":
+		# 	X_resampled, y_resampled = ADASYN(random_state=1).fit_resample(X_train, y_train)
 		
-		elif sampling_method == "SMOTEENN":
-			smote_enn = SMOTEENN(random_state=1)
-			X_resampled, y_resampled = smote_enn.fit_resample(X_train, y_train)
+		# elif sampling_method == "SMOTEENN":
+		# 	print("SMOTEENN skipped")
+		# 	continue
+		# 	smote_enn = SMOTEENN(random_state=1)
+		# 	X_resampled, y_resampled = smote_enn.fit_resample(X_train, y_train)
 		
-		elif sampling_method == "SMOTETomek":
-			smote_tomek = SMOTETomek(random_state=1)			
-			X_resampled, y_resampled = smote_tomek.fit_resample(X, y)
+		# elif sampling_method == "SMOTETomek":
+		# 	print("SMOTETomek skipped")
+		# 	resumed_run = False
+		# 	continue
+		# 	smote_tomek = SMOTETomek(random_state=1)			
+		# 	X_resampled, y_resampled = smote_tomek.fit_resample(X, y)
+		
 		print("Sampling of", sampling_method, "done. Took %.2f"%(time.time()-start))
 		for (classifier, model_name) in zip(ALL_MODELS, ALL_MODEL_NAMES):
 			if resumed_run:
@@ -165,3 +169,5 @@ for train_index, test_index in kf.split(X, y):
 				pickle.dump(all_results, handle)
 			print("Model", model_name, "on fold", fold, "with sampling strategy", sampling_method, "completed in total of", time.time()-start_train, "seconds")
 	fold += 1
+
+print("All runs complete.")
