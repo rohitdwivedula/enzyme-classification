@@ -1,6 +1,6 @@
 import tensorflow as tf
 from keras.models import Model
-from keras.layers import Dense, Dropout, Input, Conv1D, Flatten
+from keras.layers import Dense, Dropout, LSTM, Input, Conv1D, Bidirectional, GRU
 from keras import backend as K
 
 # GPU
@@ -23,7 +23,7 @@ def get_dl_model(model_name):
 		x = LSTM(32, activation = 'tanh', return_sequences = True)(inp)
 		x = Dropout(0.2)(x)
 		x = LSTM(32, activation = 'tanh')(x)
-		out = Dense(8, activation='softmax')(x)
+		out = Dense(7, activation='softmax')(x)
 		model = Model(inp, out)
 	
 	elif model_name == "BILSTM":
@@ -31,14 +31,14 @@ def get_dl_model(model_name):
 		x = Bidirectional(LSTM(32, activation = 'tanh', return_sequences = True))(inp)
 		x = Dropout(0.4)(x)
 		x = Bidirectional(LSTM(32, activation = 'tanh'))(x)
-		out = Dense(8, activation='softmax')(x)
+		out = Dense(7, activation='softmax')(x)
 		model = Model(inp, out)
 	
 	elif model_name == "GRU":
 		inp = Input(shape=(3,100))
 		x = GRU(32, activation = 'tanh', return_sequences = True)(inp)
 		x = GRU(32, activation = 'tanh')(x)
-		out = Dense(8, activation='softmax')(x)
+		out = Dense(7, activation='softmax')(x)
 		model = Model(inp, out)
 
 	elif model_name == "ABLE":
@@ -47,7 +47,7 @@ def get_dl_model(model_name):
 		x = Bidirectional(LSTM(128, activation = 'tanh', return_sequences = True))(x)
 		x = SeqSelfAttention(attention_activation='tanh')(x)
 		x = Flatten()(x)
-		out = Dense(8, activation='softmax')(x)
+		out = Dense(7, activation='softmax')(x)
 		model = Model(inp, out)
 
 	return model

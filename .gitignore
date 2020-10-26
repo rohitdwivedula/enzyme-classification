@@ -1,4 +1,5 @@
 /biovec
 /data
-/models/*
 **/__pycache__
+src/models/*
+literature/
