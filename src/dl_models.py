@@ -1,6 +1,6 @@
 import tensorflow as tf
 from keras.models import Model
-from keras.layers import Dense, Dropout, LSTM, Input, Conv1D, Bidirectional, GRU
+from keras.layers import Dense, Dropout, LSTM, Input, Conv1D, Bidirectional, GRU, Flatten
 from keras import backend as K
 
 # GPU
