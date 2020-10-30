@@ -50,10 +50,10 @@ sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_opti
 from dl_models import get_dl_model 
 
 # Load Dataset
-with open('X.pickle','rb') as infile:
+with open('../data/X.pickle','rb') as infile:
 	X = pickle.load(infile)
 
-with open('y.pickle','rb') as infile:
+with open('../data/y.pickle','rb') as infile:
 	y = pickle.load(infile)
 
 X = X[y != 7]

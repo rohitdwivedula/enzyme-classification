@@ -60,10 +60,10 @@ else:
 	ALL_MODELS = ["SVC", "LinearSVC", "xgboost"]
 	ALL_MODEL_NAMES = [SVC, LinearSVC, xgboost.XGBClassifier]
 
-with open('X.pickle','rb') as infile:
+with open('../data/X.pickle','rb') as infile:
 	X = pickle.load(infile)
 
-with open('y.pickle','rb') as infile:
+with open('../data/y.pickle','rb') as infile:
 	y = pickle.load(infile)
 
 X = np.reshape(X, newshape=(127537, 300))
