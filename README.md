@@ -1,4 +1,6 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![DOI](https://zenodo.org/badge/290200950.svg)](https://zenodo.org/badge/latestdoi/290200950)
+
+
 
 # ABLE: Attention Based Learning for Enzyme classification
 
