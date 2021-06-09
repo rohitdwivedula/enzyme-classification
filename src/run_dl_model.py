@@ -9,13 +9,13 @@ import time
 
 # check if user parameters are valid
 parser = argparse.ArgumentParser(description='Run one DL models on protein dataset.')
-parser.add_argument('model', help='Name of the model to run it on. Must be one of CNN, GRU, LSTM, BILSTM, ABLE')
+parser.add_argument('model', help='Name of the model to run it on. Must be one of CNN, GRU, LSTM, BILSTM, ABLE, DEEPEC')
 parser.add_argument('-e', '--epochs', nargs='?', type=int, default=100, help='Number of epochs for training')
 parser.add_argument('-b', '--batch', nargs='?', type=int, default=128, help='Batch size for training')
 parser.add_argument('-l', '--lr', nargs='?', type=float, default=1e-4, help='Learning rate for Adam optimizer')
 args = parser.parse_args()
 
-if args.model not in ["CNN", "GRU", "LSTM", "BILSTM", "ABLE"]:
+if args.model not in ["ANN", "CNN", "GRU", "LSTM", "BILSTM", "ABLE", "DEEPEC"]:
 	print("Model", args.model, "is not defined. Please make changes to dl_models.py and this file")
 	exit(0)
 
@@ -27,7 +27,7 @@ from tensorflow.keras.models import load_model
 from keras.utils import to_categorical, np_utils
 from keras.regularizers import l2
 from tensorflow.compat.v1 import ConfigProto # GPU
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE, ADASYN
 from keras import backend as K
 
 gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
@@ -60,7 +60,8 @@ X = X[y != 7]
 y = y[y != 7]
 
 kf = StratifiedKFold(n_splits=10, random_state=1, shuffle=True)
-SAMPLING_METHODS = ["NONE", "SMOTE"]
+# SAMPLING_METHODS = ["NONE", "SMOTE", "ADASYN"] # sampling options
+SAMPLING_METHODS = ["ADASYN"]
 
 if os.path.exists(args.model + '_results.pickle'):
 	with open(args.model + '_results.pickle', 'rb') as f:
@@ -102,45 +103,92 @@ for train_index, test_index in kf.split(X, y):
 				resumed_run = False
 				continue
 
+
+		CACHED_FOLD_FILE = "../data/" + sampling_method + "_FOLD_" + str(fold) + ".pickle"
+
 		if sampling_method == "NONE":
 			X_resampled = X_train
 			y_resampled = np_utils.to_categorical(y_train)
 
-		elif sampling_method == "SMOTE":
-			start_smote = time.time()
-			X_resampled, X_val, y_resampled, y_val = train_test_split(X_train, y_train, test_size=0.1, stratify=y_train)
-			y_val = np_utils.to_categorical(y_val)
-			X_resampled = np.reshape(X_resampled, newshape=(X_resampled.shape[0], 300))
-			print("Sampling with SMOTE begin")
-			X_resampled, y_resampled = SMOTE(random_state=1, n_jobs=3).fit_resample(X_resampled, y_resampled)
-			X_resampled = np.reshape(X_resampled, newshape = (X_resampled.shape[0], 3, 100))
-			y_resampled = np_utils.to_categorical(y_resampled)
-			print("SMOTE complete in %.2f seconds"%(time.time() - start_smote))
+		else:
+			print(CACHED_FOLD_FILE)
+			if os.path.exists(CACHED_FOLD_FILE):
+				print("Currently doing ", fold, "with", sampling_method, "Found: ", CACHED_FOLD_FILE)
+				with open(CACHED_FOLD_FILE,'rb') as infile:
+					X_resampled, y_resampled, X_val, y_val, X_test, y_test = pickle.load(infile)
+
+			elif sampling_method == "SMOTE":
+				start_smote = time.time()
+				X_resampled, X_val, y_resampled, y_val = train_test_split(X_train, y_train, test_size=0.1, stratify=y_train)
+				y_val = np_utils.to_categorical(y_val)
+				X_resampled = np.reshape(X_resampled, newshape=(X_resampled.shape[0], 300))
+				print("Sampling with SMOTE begin")
+				X_resampled, y_resampled = SMOTE(random_state=1, n_jobs=3).fit_resample(X_resampled, y_resampled)
+				X_resampled = np.reshape(X_resampled, newshape = (X_resampled.shape[0], 3, 100))
+				y_resampled = np_utils.to_categorical(y_resampled)
+				
+				all_data_current_fold = [X_resampled, y_resampled, X_val, y_val, X_test, y_test]
+				with open(CACHED_FOLD_FILE, 'wb') as handle:
+					pickle.dump(all_data_current_fold, handle)
+				
+				all_data_current_fold = None
+				
+				print("SMOTE complete in %.2f seconds"%(time.time() - start_smote))
+
+			elif sampling_method == "ADASYN":
+				start_adasyn = time.time()
+				X_resampled, X_val, y_resampled, y_val = train_test_split(X_train, y_train, test_size=0.1, stratify=y_train)
+				y_val = np_utils.to_categorical(y_val)
+				X_resampled = np.reshape(X_resampled, newshape=(X_resampled.shape[0], 300))
+				print("Sampling with ADASYN begin")
+				X_resampled, y_resampled = ADASYN(random_state=1, n_jobs=3).fit_resample(X_resampled, y_resampled)
+				X_resampled = np.reshape(X_resampled, newshape = (X_resampled.shape[0], 3, 100))
+				y_resampled = np_utils.to_categorical(y_resampled)
+				print("ADASYN complete in %.2f seconds"%(time.time() - start_adasyn))
+
+				all_data_current_fold = [X_resampled, y_resampled, X_val, y_val, X_test, y_test]
+				with open(CACHED_FOLD_FILE, 'wb') as handle:
+					pickle.dump(all_data_current_fold, handle)
+				
+				all_data_current_fold = None
 
 		start_train = time.time()
 		model = get_dl_model(args.model)
 		print(model.summary())
 		opt = keras.optimizers.Adam(learning_rate = args.lr)
 		model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
-		mcp_save = keras.callbacks.ModelCheckpoint('models/saved_model.h5', save_best_only=True, monitor='val_loss', verbose=1)
+
+		keras_saved_file = "models/" + args.model + "_" + sampling_method + "_" + str(fold) + ".h5"
+
+		mcp_save = keras.callbacks.ModelCheckpoint(keras_saved_file, save_best_only=True, monitor='val_loss', verbose=1)
 		reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, verbose=1, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
 		callbacks_list = [reduce_lr, mcp_save]
 		if sampling_method == "NONE":
 			history = model.fit(X_resampled, y_resampled, batch_size = args.batch, epochs = args.epochs, validation_split = 0.1, shuffle = True, callbacks = callbacks_list)
 		else:
+			print("Sampled train dataset: ", X_resampled.shape, y_resampled.shape)
+			print("Validation dataset: ", X_val.shape, y_val.shape)
 			history = model.fit(X_resampled, y_resampled, batch_size = args.batch, epochs = args.epochs, validation_data = (X_val, y_val), shuffle = True, callbacks = callbacks_list)
-		model = load_model('models/saved_model.h5')
-		end_train = time.time()
+		
+		model = load_model(keras_saved_file)
+		end_train = time.time()	
 		
 		y_pred = model.predict(X_test)
+
 		y_labels = np.argmax(y_pred, axis=1)
+		end_test = time.time()
+
 		print(y_pred.shape)
 		print(y_labels.shape)
 		
-		# Metrics
-		filename = "../results/dl/" + args.model + "_" + sampling_method + "_" + str(fold) + "_" + str(args.epochs) + "_" + str(args.batch) + ".npy"
-		end_test = time.time()
+		# dump raw predictions
+		Y_SAVE_LOCATION_PREFIX = "./results/dl/" + args.model + "_" + sampling_method + "_" + str(fold) + "_" + str(args.epochs) + "_" + str(args.batch)
+		np.save(Y_SAVE_LOCATION_PREFIX + "_PRED.npy", y_pred)
+		np.save(Y_SAVE_LOCATION_PREFIX + "_TRUE.npy", y_test)
 
+		# Metrics
+		filename = "./results/dl/" + args.model + "_" + sampling_method + "_" + str(fold) + "_" + str(args.epochs) + "_" + str(args.batch) + ".npy"
+		
 		results_dict = {
 			"model": args.model,
 			"epochs": args.epochs,
@@ -165,4 +213,4 @@ for train_index, test_index in kf.split(X, y):
 		model = None
 		history = None
 		K.clear_session()
-	fold += 1
+	fold += 1	

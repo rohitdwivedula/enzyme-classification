@@ -8,7 +8,18 @@ from tensorflow.compat.v1 import ConfigProto
 from keras_self_attention import SeqSelfAttention
 
 def get_dl_model(model_name):
-	if model_name == "CNN":
+	if model_name == "ANN":
+		inp = Input(shape=(3,100))
+		x = Dense(256, activation='relu')(x)
+		x = Dense(128, activation='relu')(x)
+		x = Dropout(0.2)(x)
+		x = Dense(64, activation='relu')(x)
+		x = Dropout(0.2)(x)
+		x = Dense(32, activation = 'relu')(x)
+		out = Dense(7, activation='softmax')(x)
+		model = Model(inp, out)
+
+	elif model_name == "CNN":
 		inp = Input(shape=(3,100))
 		x = Conv1D(128, (3), padding = 'same', activation = 'relu')(inp)
 		x = Conv1D(64, (3), padding = 'same', activation = 'relu')(x)
@@ -50,4 +61,12 @@ def get_dl_model(model_name):
 		out = Dense(7, activation='softmax')(x)
 		model = Model(inp, out)
 
+	elif model_name == "DEEPEC":
+		inp = Input(shape=(3,100))
+		x = Conv1D(128, (3), padding = 'same', activation = 'relu')(inp)
+		x = Flatten()(x)
+		x = Dense(128, activation = 'relu')(x)
+		out = Dense(7, activation='softmax')(x)
+		model = Model(inp, out)
+	
 	return model

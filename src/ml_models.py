@@ -36,7 +36,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report, confusion_matrix
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.combine import SMOTEENN, SMOTETomek
-SAMPLING_METHODS = ["NONE", "SMOTE"]
+SAMPLING_METHODS = ["ADASYN"]
 
 parser = argparse.ArgumentParser(description='Run all ML models on protein dataset.')
 parser.add_argument('--smoketest', dest='smoketest', action='store_true', help='Run models on only first 100 rows of data (for testing)')
@@ -121,8 +121,8 @@ for train_index, test_index in kf.split(X, y):
 		elif sampling_method == "SMOTE":
 			X_resampled, y_resampled = SMOTE(random_state=1).fit_resample(X_train, y_train)
 		
-		# elif sampling_method == "ADASYN":
-		# 	X_resampled, y_resampled = ADASYN(random_state=1).fit_resample(X_train, y_train)
+		elif sampling_method == "ADASYN":
+			X_resampled, y_resampled = ADASYN(random_state=1).fit_resample(X_train, y_train)
 		
 		# elif sampling_method == "SMOTEENN":
 		# 	print("SMOTEENN skipped")
