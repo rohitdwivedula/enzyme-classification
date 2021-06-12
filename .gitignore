@@ -3,3 +3,6 @@
 **/__pycache__
 src/models/*
 literature/
+**/.ipynb_checkpoints/
+*_PRED.npy
+*_TRUE.npy
